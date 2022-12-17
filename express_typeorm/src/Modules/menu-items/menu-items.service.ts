@@ -1,9 +1,9 @@
-import { MenuItem } from './entities/menu-item.entity';
+import { MenuItem } from "./entities/menu-item.entity";
+import { MenuItemWithChildren } from "./interfaces/menu-item-with-children.interface";
 import { Repository } from "typeorm";
 import App from "../../app";
 
 export class MenuItemsService {
-
   private menuItemRepository: Repository<MenuItem>;
 
   constructor(app: App) {
@@ -86,6 +86,17 @@ export class MenuItemsService {
   */
 
   async getMenuItems() {
-    throw new Error('TODO in task 3');
+    const menus = await this.menuItemRepository.find();
+    const recursive = (parents: Array<MenuItem>) => {
+      return parents.map((parent: MenuItemWithChildren) => {
+        parent.children = recursive(
+          menus.filter((menu) => menu.parentId === parent.id)
+        );
+
+        return parent;
+      });
+    };
+
+    return recursive(menus.filter((menu) => menu.parentId === null));
   }
 }

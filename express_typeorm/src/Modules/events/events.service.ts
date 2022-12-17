@@ -1,13 +1,17 @@
-import { Repository } from 'typeorm';
-import { Event } from './entities/event.entity';
+import { format } from "date-fns";
+import { In, MoreThan, Repository } from "typeorm";
+import { Event } from "./entities/event.entity";
+import { Workshop } from "./entities/workshop.entity";
+import { EventWithWorkshop } from "./interfaces/event-with-workshops.interface";
 import App from "../../app";
-
 
 export class EventsService {
   private eventRepository: Repository<Event>;
+  private workshopRepository: Repository<Workshop>;
 
   constructor(app: App) {
     this.eventRepository = app.getDataSource().getRepository(Event);
+    this.workshopRepository = app.getDataSource().getRepository(Workshop);
   }
 
   async getWarmupEvents() {
@@ -92,7 +96,18 @@ export class EventsService {
      */
 
   async getEventsWithWorkshops() {
-    throw new Error('TODO task 1');
+    const events = await this.eventRepository.find();
+    const workshops = await this.workshopRepository.find({
+      where: { eventId: In(events.map((event) => event.id)) },
+    });
+
+    return events.map((event: EventWithWorkshop) => {
+      event.workshops = workshops.filter(
+        (workshop) => workshop.eventId === event.id
+      );
+
+      return event;
+    });
   }
 
   /* TODO: complete getFutureEventWithWorkshops so that it returns events with workshops, that have not yet started
@@ -162,6 +177,29 @@ export class EventsService {
     ```
      */
   async getFutureEventWithWorkshops() {
-    throw new Error('TODO task 2');
+    const futureEventsId = await this.workshopRepository.find({
+      select: {
+        eventId: true,
+      },
+      where: {
+        start: MoreThan(format(new Date(), "yyyy-mm-dd HH:MM:ss")),
+      },
+    });
+    const events = await this.eventRepository.find({
+      where: {
+        id: In(futureEventsId.map((futureEvent) => futureEvent.eventId)),
+      },
+    });
+    const workshops = await this.workshopRepository.find({
+      where: { eventId: In(events.map((event) => event.id)) },
+    });
+
+    return events.map((event: EventWithWorkshop) => {
+      event.workshops = workshops.filter(
+        (workshop) => workshop.eventId === event.id
+      );
+
+      return event;
+    });
   }
 }
